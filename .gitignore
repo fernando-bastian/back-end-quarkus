@@ -1,0 +1,16 @@
+target/
+.env
+.env.*
+!.env.example
+config/
+*.pem
+*.key
+*.log
+.idea/
+.vscode/
+*.iml
+.superpowers/
+.worktrees/
+.local/
+.DS_Store
+Thumbs.db

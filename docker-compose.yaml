@@ -1,0 +1,35 @@
+include:
+  - docker-compose.dev.yaml
+
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/financeiro
+      DB_USERNAME: ${DB_USERNAME:-financeiro}
+      DB_PASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD no arquivo .env}
+      CSRF_SECRET: ${CSRF_SECRET:?Defina CSRF_SECRET no arquivo .env}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:4200}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      APP_BOOTSTRAP_NOME: ${APP_BOOTSTRAP_NOME:-Estudante}
+      APP_BOOTSTRAP_EMAIL: ${APP_BOOTSTRAP_EMAIL:-}
+      APP_BOOTSTRAP_SENHA: ${APP_BOOTSTRAP_SENHA:-}
+    volumes:
+      - type: bind
+        source: ./config
+        target: /app/config
+        read_only: true
+        bind:
+          create_host_path: false
+    ports:
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/auth/csrf"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
