@@ -9,7 +9,6 @@ import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
@@ -115,24 +114,19 @@ public class FinanceiroService {
 
     public SaldosResposta saldos() {
         Long usuarioId = atual.obter().id;
-        // calcula os saldos na mesma leitura, sem pegar uma transferência pela metade
-        @SuppressWarnings("unchecked")
-        List<Object[]> rows = entityManager.createNativeQuery("""
-                SELECT c.id, c.nome,
-                       COALESCE(SUM(CASE WHEN t.tipo IN ('RECEITA', 'TRANSFERENCIA_ENTRADA')
-                                         THEN t.valor ELSE -t.valor END), 0)
-                  FROM contas c
-                  LEFT JOIN transacoes t ON t.conta_id = c.id AND t.usuario_id = c.usuario_id
-                 WHERE c.usuario_id = :usuario
-                 GROUP BY c.id, c.nome
-                 ORDER BY c.id
-                """).setParameter("usuario", usuarioId).getResultList();
-        var contas = new ArrayList<SaldoConta>();
+        List<SaldoConta> contas = entityManager.createQuery("""
+                select c.id, c.nome,
+                       coalesce(sum(case when t.tipo in (RECEITA, TRANSFERENCIA_ENTRADA)
+                                         then t.valor else -t.valor end), 0.00BD)
+                from Conta c
+                left join Transacao t on t.conta = c and t.usuario = c.usuario
+                where c.usuario.id = :usuario
+                group by c.id, c.nome
+                order by c.id
+                """, SaldoConta.class).setParameter("usuario", usuarioId).getResultList();
         BigDecimal total = BigDecimal.ZERO.setScale(2);
-        for (Object[] row : rows) {
-            BigDecimal saldo = ((BigDecimal) row[2]).setScale(2);
-            contas.add(new SaldoConta(((Number) row[0]).longValue(), (String) row[1], saldo));
-            total = total.add(saldo);
+        for (SaldoConta conta : contas) {
+            total = total.add(conta.saldo());
         }
         return new SaldosResposta(contas, total);
     }

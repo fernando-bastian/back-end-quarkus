@@ -2,8 +2,10 @@ package br.com.fernandobastian.financeiro.auth;
 
 import br.com.fernandobastian.financeiro.api.ApiException;
 import br.com.fernandobastian.financeiro.model.Usuario;
+import io.quarkus.runtime.StartupEvent;
 import io.smallrye.jwt.build.Jwt;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.Locale;
@@ -13,16 +15,15 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 public class AuthService {
     @Inject Senhas senhas;
     @ConfigProperty(name = "app.jwt.duration-seconds") long duration;
-    // evita que o tempo de resposta revele se o e-mail existe
-    private volatile String hashFicticio;
+    private String hashFicticio;
+
+    void prepararLogin(@Observes StartupEvent evento) {
+        hashFicticio = senhas.hash("valor-interno-sem-usuario");
+    }
 
     public Usuario autenticar(String email, String senha) {
         Usuario usuario = Usuario.find("email", normalizarEmail(email)).firstResult();
-        if (hashFicticio == null) {
-            synchronized (this) {
-                if (hashFicticio == null) hashFicticio = senhas.hash("valor-interno-sem-usuario");
-            }
-        }
+        // Verifica um hash mesmo quando o e-mail não existe para manter o custo do login semelhante.
         boolean valido = senhas.conferir(senha, usuario == null ? hashFicticio : usuario.senhaHash);
         if (usuario == null || !valido) throw new ApiException(401, "E-mail ou senha inválidos.");
         return usuario;
